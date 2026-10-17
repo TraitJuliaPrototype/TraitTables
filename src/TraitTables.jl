@@ -67,6 +67,7 @@ TraitWorld.@workload begin
     sprint(show, MIME"text/plain"(), sortby(t, "n"))
     head(select(t, "x", "s"), 2)
     floats(t, "x"); floats(t, "n")
+    floats(t, colnames(t)[1])
 end
 
 end
