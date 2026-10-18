@@ -75,18 +75,30 @@ sortby(t::Table, name::String) = rows(t, sortperm_col(column(t, name))::Vector{I
 
 # --- numbers and summaries ------------------------------------------------------------------------
 
-"A column of numbers as `Float64`s, for plotting and statistics."
-function floats(c::Column)
+"""
+A column of numbers as `Float64`s, for plotting and statistics. A missing cell is an error, or
+left out when `skip` is true.
+"""
+function floats(c::Column, skip::Bool)
     n = nrows(c)
-    v = Vector{Float64}(undef, n)
+    v = Float64[]
+    sizehint!(v, n)
     for i in 1:n
-        v[i] = Float64(cell(c, i))
+        x = cell(c, i)
+        if x === missing
+            skip && continue
+            throw(ArgumentError("cell $i is missing: pass skipmissing = true to leave missing cells out"))
+        end
+        push!(v, Float64(x))
     end
     return v
 end
-floats(t::Table, name::String) = floats(column(t, name))::Vector{Float64}
+floats(c::Column) = floats(c, false)
 
-"A column's summary: for numbers, mean, sample standard deviation, min, max and sum; otherwise the number of distinct cells."
+"""
+A column's summary: for numbers, mean, sample standard deviation, min, max and sum; otherwise the
+number of distinct cells. Missing cells are counted and left out.
+"""
 struct ColSummary
     name::String
     eltype::String
@@ -98,34 +110,59 @@ struct ColSummary
     max::Float64
     sum::Float64
     ndistinct::Int
+    nmissing::Int
 end
 
-function numsummary(c::Column, name::String, n::Int, T::String)
+function numsummary(c::Column, name::String, n::Int, nmiss::Int, T::String)
     s = 0.0
     lo, hi = Inf, -Inf
     for i in 1:n
-        x = Float64(cell(c, i))
-        s += x
-        lo = min(lo, x)
-        hi = max(hi, x)
+        x = cell(c, i)
+        x === missing && continue
+        v = Float64(x)
+        s += v
+        lo = min(lo, v)
+        hi = max(hi, v)
     end
-    m = s / n
+    k = n - nmiss
+    m = s / k
     q = 0.0
     for i in 1:n
-        q += (Float64(cell(c, i)) - m)^2
+        x = cell(c, i)
+        x === missing && continue
+        q += (Float64(x) - m)^2
     end
-    return ColSummary(name, T, n, true, m, n > 1 ? sqrt(q / (n - 1)) : NaN, lo, hi, s, 0)
+    return ColSummary(name, T, n, true, m, k > 1 ? sqrt(q / (k - 1)) : NaN, lo, hi, s, 0, nmiss)
 end
-othersummary(c::Column, name::String, n::Int, T::String) =
-    ColSummary(name, T, n, false, NaN, NaN, NaN, NaN, NaN, length(Set(cell(c, i) for i in 1:n)))
+function othersummary(c::Column, name::String, n::Int, nmiss::Int, T::String)
+    seen = Set{Any}()
+    for i in 1:n
+        x = cell(c, i)
+        x === missing || push!(seen, x)
+    end
+    return ColSummary(name, T, n, false, NaN, NaN, NaN, NaN, NaN, length(seen), nmiss)
+end
 
-"A column's summary, compiled per column type."
+"""
+A column's summary, compiled per column type. The cell type is named from the cells: the first
+cell's type, as `Union{Missing, …}` when some cells are missing.
+"""
 function summarize(c::Column, name::String)
     n = nrows(c)
-    x = n == 0 ? nothing : cell(c, 1)
-    T = string(typeof(x))
-    n == 0 && return ColSummary(name, "", 0, false, NaN, NaN, NaN, NaN, NaN, 0)
-    return x isa Real ? numsummary(c, name, n, T)::ColSummary : othersummary(c, name, n, T)::ColSummary
+    n == 0 && return ColSummary(name, "", 0, false, NaN, NaN, NaN, NaN, NaN, 0, 0)
+    nmiss = 0
+    first = 0
+    for i in 1:n
+        if cell(c, i) === missing
+            nmiss += 1
+        elseif first == 0
+            first = i
+        end
+    end
+    first == 0 && return ColSummary(name, "Missing", n, false, NaN, NaN, NaN, NaN, NaN, 0, nmiss)
+    x = cell(c, first)
+    T = nmiss > 0 ? "Union{Missing, " * string(typeof(x)) * "}" : string(typeof(x))
+    return x isa Real ? numsummary(c, name, n, nmiss, T)::ColSummary : othersummary(c, name, n, nmiss, T)::ColSummary
 end
 
 "Every column's summary (one dispatch per column)."

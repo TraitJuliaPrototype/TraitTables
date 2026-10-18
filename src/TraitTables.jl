@@ -12,7 +12,7 @@ using TraitWorld
 include("TableCore.jl")
 using .TableCore
 export Table, Column, nrows, cell, ncol, nrow, colnames, column, addcolumn!, select, rows, head, sortby,
-       floats, ColSummary, describe, summary_text
+       floats, ColSummary, describe, summary_text, numericnames
 
 "A table from `name => vector` pairs (the vectors are kept, not copied)."
 function table(pairs::Pair...)
@@ -43,18 +43,29 @@ function Base.show(io::IO, ::MIME"text/plain", t::Table)
     end
     nr > shown && print(io, "⋮ (", nr - shown, " more rows)")
 end
+"""
+    floats(t, name; skipmissing = false)
+
+Column `name` as `Float64`s. A missing cell is an error, unless `skipmissing` leaves such cells out.
+"""
+TableCore.floats(t::Table, name::AbstractString; skipmissing::Bool = false) =
+    TableCore.floats(TableCore.column(t, String(name)), skipmissing)::Vector{Float64}
+"The names of the columns whose cells are numbers (missing cells allowed)."
+numericnames(t::Table) = String[s.name for s in TableCore.describe(t) if s.numeric]
+
 Base.show(io::IO, t::Table) = print(io, size(t, 1), "×", size(t, 2), " Table(", join(t.names, ", "), ")")
 
-"Per column one line: for numbers mean, sample standard deviation, min, max and sum."
+"Per column one line: for numbers mean, sample standard deviation, min, max and sum; otherwise the distinct cells; missing cells counted."
 function summary_text(t::Table)
     io = IOBuffer()
     for s in TableCore.describe(t)
         if s.numeric
-            println(io, rpad(s.name, 6), " mean ", round(s.mean; digits = 4), "  std ", round(s.std; digits = 4),
-                    "  min ", s.min, "  max ", s.max, "  sum ", round(s.sum; digits = 4))
+            print(io, rpad(s.name, 6), " mean ", round(s.mean; digits = 4), "  std ", round(s.std; digits = 4),
+                  "  min ", s.min, "  max ", s.max, "  sum ", round(s.sum; digits = 4))
         else
-            println(io, rpad(s.name, 6), " ", s.eltype, ", ", s.ndistinct, " distinct of ", s.n)
+            print(io, rpad(s.name, 6), " ", s.eltype, ", ", s.ndistinct, " distinct of ", s.n)
         end
+        println(io, s.nmissing > 0 ? string("  missing ", s.nmissing) : "")
     end
     return String(take!(io))
 end
@@ -68,6 +79,11 @@ TraitWorld.@workload begin
     head(select(t, "x", "s"), 2)
     floats(t, "x"); floats(t, "n")
     floats(t, colnames(t)[1])
+    m = table("a" => Union{Missing,Float64}[1.0, missing, 2.0], "b" => Union{Missing,Int}[missing, 1, 2],
+              "c" => Union{Missing,String}["x", missing, "y"])
+    summary_text(m)
+    floats(m, "a"; skipmissing = true)
+    numericnames(m)
 end
 
 end
