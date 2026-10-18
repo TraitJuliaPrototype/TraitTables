@@ -168,7 +168,7 @@ end
 "Every column's summary (one dispatch per column)."
 describe(t::Table) = ColSummary[summarize(t.cols[k], t.names[k])::ColSummary for k in eachindex(t.cols)]
 
-"A cell as text, for printing."
-cellstring(c::Column, i::Int) = string(cell(c, i))
+"A cell as text, for printing (a `String`: `string` of an InlineStrings cell is that cell's own type)."
+cellstring(c::Column, i::Int) = String(string(cell(c, i)))
 
 end
