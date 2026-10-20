@@ -49,7 +49,7 @@ end
 Column `name` as `Float64`s. A missing cell is an error, unless `skipmissing` leaves such cells out.
 """
 TableCore.floats(t::Table, name::AbstractString; skipmissing::Bool = false) =
-    TableCore.floats(TableCore.column(t, String(name)), skipmissing)::Vector{Float64}
+    TableCore.floats(compiled_for(TableCore.column(t, String(name))), skipmissing)::Vector{Float64}
 "The names of the columns whose cells are numbers (missing cells allowed)."
 numericnames(t::Table) = String[s.name for s in TableCore.describe(t) if s.numeric]
 

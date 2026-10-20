@@ -1,6 +1,7 @@
 # TableCore: the trait module. A table is named columns kept as dynamic values,
 # `Vector{Dynamic{Column}}`, so that a new schema compiles nothing, while each column's code
-# (summaries, row selection, sorting) runs in workers compiled per column type, the key:
+# (summaries, row selection, sorting) runs in workers compiled per column type, the key: a column is
+# `Dynamic` as stored, and `compiled_for(c)` at those calls selects its key's worker once per column:
 #   - `Column{T}`: what table code reads from a column. Every `Vector` conforms; a reader's own
 #     column type conforms by a supertrait (TraitCSV's `CSVColumn <: Column`);
 #   - `Table`: names and columns, the columns of any conforming types.
@@ -62,7 +63,7 @@ select(t::Table, names::Vector{String}) = Table(copy(names), Column[t.cols[colin
 take(c::Column, idx::Vector{Int}) = Dynamic{Column}([cell(c, i) for i in idx])
 
 "The rows `idx`, in that order, as a new table."
-rows(t::Table, idx::Vector{Int}) = Table(copy(t.names), Column[take(c, idx)::Dynamic{Column} for c in t.cols])
+rows(t::Table, idx::Vector{Int}) = Table(copy(t.names), Column[take(compiled_for(c), idx)::Dynamic{Column} for c in t.cols])
 head(t::Table, n::Int) = rows(t, collect(1:min(n, nrow(t))))
 
 "The permutation that sorts a column."
@@ -71,7 +72,7 @@ function sortperm_col(c::Column)
     return sortperm(v)
 end
 "The table sorted by column `name`."
-sortby(t::Table, name::String) = rows(t, sortperm_col(column(t, name))::Vector{Int})
+sortby(t::Table, name::String) = rows(t, sortperm_col(compiled_for(column(t, name)))::Vector{Int})
 
 # --- numbers and summaries ------------------------------------------------------------------------
 
@@ -166,7 +167,7 @@ function summarize(c::Column, name::String)
 end
 
 "Every column's summary (one dispatch per column)."
-describe(t::Table) = ColSummary[summarize(t.cols[k], t.names[k])::ColSummary for k in eachindex(t.cols)]
+describe(t::Table) = ColSummary[summarize(compiled_for(t.cols[k]), t.names[k])::ColSummary for k in eachindex(t.cols)]
 
 "A cell as text, for printing (a `String`: `string` of an InlineStrings cell is that cell's own type)."
 cellstring(c::Column, i::Int) = String(string(cell(c, i)))
