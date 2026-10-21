@@ -1,11 +1,11 @@
-# TableCore: the trait module. A table is named columns kept as dynamic values,
-# `Vector{Dynamic{Column}}`, so that a new schema compiles nothing, while each column's code
-# (summaries, row selection, sorting) runs in workers compiled per column type, the key: a column is
-# `Dynamic` as stored, and `compiled_for(c)` at those calls selects its key's worker once per column:
+# TableCore: the trait module. A table is named columns, `Vector{Column}` (a `Vector{Kept{Column}}`:
+# each column with its attribute), so that a new schema compiles nothing in the table's loops,
+# while each column's code (summaries, row selection, sorting) runs in workers compiled per column
+# type, the key: `compiled_for(c)` at those calls selects its key's worker once per column:
 #   - `Column{T}`: what table code reads from a column. Every `Vector` conforms; a reader's own
 #     column type conforms by a supertrait (TraitCSV's `CSVColumn <: Column`);
 #   - `Table`: names and columns, the columns of any conforming types.
-# This is the storage proposed for DataFrames itself, `Vector{Dynamic{Column}}` in place of
+# This is the storage proposed for DataFrames itself, `Vector{Column}` in place of
 # `Vector{AbstractVector}` (decisions.md, session 26).
 @trait_module module TableCore
 using TraitWorld
@@ -27,7 +27,7 @@ end
 
 # --- the table ----------------------------------------------------------------------------------
 
-"Named columns of equal length, each of any type conforming to `Column` (a `Vector{Dynamic{Column}}`)."
+"Named columns of equal length, each of any type conforming to `Column` (a `Vector{Kept{Column}}`, each column with its attribute)."
 struct Table
     names::Vector{String}
     cols::Vector{Column}
@@ -44,13 +44,13 @@ function colindex(t::Table, name::String)
 end
 column(t::Table, name::String) = t.cols[colindex(t, name)]
 
-"Add column `c`, of any conforming type, under `name`. The column is kept as it is, not copied."
+"Add column `c`, of any conforming type, under `name`. The column is kept as it is, not copied, with its attribute."
 function addcolumn!(t::Table, name::String, c::Column)
     name in t.names && throw(ArgumentError("a column \"$name\" exists already"))
     isempty(t.cols) || nrows(c) == nrow(t) ||
         throw(DimensionMismatch("column \"$name\" has $(nrows(c)) rows, the table $(nrow(t))"))
     push!(t.names, name)
-    push!(t.cols, Dynamic{Column}(c))
+    push!(t.cols, c)
     return t
 end
 

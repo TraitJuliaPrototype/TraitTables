@@ -9,7 +9,7 @@ TraitTables.cell(f::Fill, i::Int) = f.x
 @testset "TraitTables" begin
     t = TraitTables.table("x" => [0.5, 1.5, 2.5], "n" => [3, 1, 2], "s" => ["b", "a", "c"])
     @test size(t) == (3, 3) && colnames(t) == ["x", "n", "s"]
-    @test t.cols isa Vector{Dynamic{Column}}
+    @test t.cols isa Vector{Kept{Column}} && all(c -> !getfield(c, :compiled), t.cols)   # kept as added: Dynamic
     d = describe(t)
     @test d[1].numeric && d[1].mean == 1.5 && d[1].sum == 4.5 && d[1].eltype == "Float64"
     @test d[2].numeric && d[2].min == 1.0 && d[2].eltype == "Int64"

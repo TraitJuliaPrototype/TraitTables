@@ -2,7 +2,7 @@
     TraitTables
 
 A DataFrame-shaped table written in the trait world (`TableCore`): named columns kept as
-`Vector{Dynamic{Column}}`, so that a new schema compiles nothing, while each column's code runs
+`Vector{Column}` (each column with its attribute, `Dynamic` by default), so that a new schema compiles nothing, while each column's code runs
 compiled per column type. This module is the ordinary layer: building tables from vectors,
 indexing by name, printing.
 """
