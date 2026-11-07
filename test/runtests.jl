@@ -2,6 +2,7 @@ using Test, TraitTables, TraitWorld
 
 # a column type of the user's own: a constant column, conforming by its own methods
 struct Fill; x::Float64; n::Int; end
+Base.eltype(::Type{Fill}) = Float64                # the trait's equation T = eltype(Self)
 TraitTables.nrows(f::Fill) = f.n
 TraitTables.cell(f::Fill, i::Int) = f.x
 @implement Column Fill
@@ -9,7 +10,7 @@ TraitTables.cell(f::Fill, i::Int) = f.x
 @testset "TraitTables" begin
     t = TraitTables.table("x" => [0.5, 1.5, 2.5], "n" => [3, 1, 2], "s" => ["b", "a", "c"])
     @test size(t) == (3, 3) && colnames(t) == ["x", "n", "s"]
-    @test t.cols isa Vector{Kept{Column}} && all(c -> !getfield(c, :compiled), t.cols)   # kept as added: Dynamic
+    @test t.cols isa Vector{Column} && all(c -> c isa Column, t.cols)   # each column kept as it was added
     d = describe(t)
     @test d[1].numeric && d[1].mean == 1.5 && d[1].sum == 4.5 && d[1].eltype == "Float64"
     @test d[2].numeric && d[2].min == 1.0 && d[2].eltype == "Int64"

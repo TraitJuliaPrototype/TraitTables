@@ -1,10 +1,10 @@
 """
     TraitTables
 
-A DataFrame-shaped table written in the trait world (`TableCore`): named columns kept as
-`Vector{Column}` (each column with its attribute, `Dynamic` by default), so that a new schema compiles nothing, while each column's code runs
-compiled per column type. This module is the ordinary layer: building tables from vectors,
-indexing by name, printing.
+A DataFrame-shaped table written with traits (`TableCore`): named columns kept as
+`Vector{Column}`, so that a new schema compiles nothing in the table's own loops, while each
+column's code runs compiled per column type. This module is the ordinary layer: building tables
+from vectors, indexing by name, printing.
 """
 module TraitTables
 using TraitWorld
@@ -70,8 +70,10 @@ function summary_text(t::Table)
     return String(take!(io))
 end
 
-# a precompile workload: the cell types a reader produces, and the table's operations
-TraitWorld.@workload begin
+# a precompile workload, run while the package image is built: the cell types a reader produces,
+# and the table's operations
+if ccall(:jl_generating_output, Cint, ()) == 1
+    let
     t = table("x" => [0.5, 1.5, 2.5], "n" => [3, 1, 2], "s" => ["b", "a", "c"])
     summary_text(t)
     sprint(show, MIME"text/plain"(), t)
@@ -84,6 +86,7 @@ TraitWorld.@workload begin
     summary_text(m)
     floats(m, "a"; skipmissing = true)
     numericnames(m)
+    end
 end
 
 end
