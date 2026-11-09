@@ -45,3 +45,8 @@ end
     @test occursin("missing 1", summary_text(m))
     @test floats(sortby(m, "a"), "a"; skipmissing = true) == [1.0, 3.0]
 end
+
+# a cast or a carried attribute at a parameter no trait types has no effect (open issue 162)
+@testset "TraitTables: no casts without effect" begin
+    @test isempty(detect_unused_casts(TraitTables))
+end
