@@ -56,14 +56,24 @@ numericnames(t::Table) = String[s.name for s in TableCore.describe(t) if s.numer
 Base.show(io::IO, t::Table) = print(io, size(t, 1), "×", size(t, 2), " Table(", join(t.names, ", "), ")")
 
 "Per column one line: for numbers mean, sample standard deviation, min, max and sum; otherwise the distinct cells; missing cells counted."
+# (not `rpad`: Base's `repeat` at a `Char` or a `String` is a call a trimmed build cannot resolve, in
+# plain Julia too)
+function _pad(s::String, n::Int)
+    io = IOBuffer()
+    print(io, s)
+    for _ in (length(s) + 1):n
+        print(io, ' ')
+    end
+    return String(take!(io))
+end
 function summary_text(t::Table)
     io = IOBuffer()
     for s in TableCore.describe(t)
         if s.numeric
-            print(io, rpad(s.name, 6), " mean ", round(s.mean; digits = 4), "  std ", round(s.std; digits = 4),
+            print(io, _pad(s.name, 6), " mean ", round(s.mean; digits = 4), "  std ", round(s.std; digits = 4),
                   "  min ", s.min, "  max ", s.max, "  sum ", round(s.sum; digits = 4))
         else
-            print(io, rpad(s.name, 6), " ", s.eltype, ", ", s.ndistinct, " distinct of ", s.n)
+            print(io, _pad(s.name, 6), " ", s.eltype, ", ", s.ndistinct, " distinct of ", s.n)
         end
         println(io, s.nmissing > 0 ? string("  missing ", s.nmissing) : "")
     end

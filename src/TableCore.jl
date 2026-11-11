@@ -150,8 +150,8 @@ function numsummary(c::Column, name::String, n::Int, nmiss::Int, T::String)
     end
     return ColSummary(name, T, n, true, m, k > 1 ? sqrt(q / (k - 1)) : NaN, lo, hi, s, 0, nmiss)
 end
-function othersummary(c::Column, name::String, n::Int, nmiss::Int, T::String)
-    seen = Set{Any}()
+function othersummary(c::Column{E}, name::String, n::Int, nmiss::Int, T::String) where {E}
+    seen = Set{E}()                    # typed by the column's cells: nothing here is known only at run time
     for i in 1:n
         x = cell(c, i)
         x === missing || push!(seen, x)
