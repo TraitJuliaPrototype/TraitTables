@@ -9,7 +9,7 @@
 # `Vector{AbstractVector}`.
 module TableCore
 using TraitWorld
-@trait_module first_seen = false     # a trait argument compiled as Julia compiles it (traits §7.1; the library's default differs: T-127)
+@trait_module
 export Column, nrows, cell, Table, emptytable, ncol, nrow, colnames, colindex, column, addcolumn!,
        select, rows, head, sortby, floats, ColSummary, summarize, describe, cellstring
 
