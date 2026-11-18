@@ -17,8 +17,10 @@ A table shaped like a DataFrame, written with traits. A table holds named column
 
 ## How it uses the design
 
-- `Column` erases nothing by default (no `@default_dynamic`). A new schema compiles nothing in the table's own loops; each column's code (summaries, row selection, sorting, conversion to `Float64`) is compiled per column type. The loops pass each column as it is, and Julia compiles the call for the column's type (`rows`, `sortby`, `describe`, `floats`). No box or wrapper is made.
-- The tests check that the user's own column type gets its own compiled instances of the table's column code (`test/runtests.jl`).
+- `Column` erases nothing by default (no `@default_dynamic`). A new schema compiles nothing in the table's own loops; each column's code (summaries, row selection, sorting, conversion to `Float64`) is compiled per column type.
+- The loops hand each column over as the wrapper, `compiled_for(c)`, where they want the column's own code (`rows`, `sortby`, `describe`, `floats`). In a session the wrapper is made for the column's type, and the call runs code compiled for it. In a trimmed build the wrapper's constructor branches over the column types the program uses; a plain call there would run one copy at `Column`, where the cells are known only as `Any`. The build does not yet carry the branches on to the call that takes the wrapper where the program has more than three column types: the design repository's open issue 242.
+- `eltype` of the wrapper is its column's, so a new column made from it (`take`, the rows of `sortby`) has the column's cell type: a `Vector{Float64}` column stays one. The table keeps its columns as they were added; no box is made.
+- The tests check that the user's own column type gets its own compiled instances of the table's column code, at `Compiled{Fill}` (`test/runtests.jl`).
 
 ## Running
 

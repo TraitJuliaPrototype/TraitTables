@@ -3,8 +3,8 @@
 #     member by a family; a reader's own column type joins by a subtrait (TraitCSV's `CSVColumn`).
 #   - `Table`: names and columns, `Vector{Column}`. A new schema compiles nothing in the table's own
 #     loops; each column's code (summaries, row selection, sorting) is compiled per column type: a loop
-#     passes each column as it is, and the call is compiled for the column's type, as Julia compiles any
-#     call (traits §7.1). `Column` erases nothing by default.
+#     hands each column over as the wrapper `compiled_for(c)`, whose code is compiled for the column's
+#     type (traits §7.4, §7.6), in a session and in a closed build. `Column` erases nothing by default.
 # This is the storage proposed for DataFrames itself, `Vector{Column}` in place of
 # `Vector{AbstractVector}`.
 module TableCore
@@ -73,7 +73,7 @@ end
 function rows(t::Table, idx::Vector{Int})
     cols = Column[]
     for c in t.cols
-        push!(cols, take(c, idx))
+        push!(cols, take(compiled_for(c), idx))          # the column's own code: the wrapper
     end
     return Table(copy(t.names), cols)
 end
@@ -88,7 +88,7 @@ function sortperm_col(c::Column)
     return sortperm(v)
 end
 "The table sorted by column `name`."
-sortby(t::Table, name::String) = rows(t, sortperm_col(column(t, name))::Vector{Int})
+sortby(t::Table, name::String) = rows(t, sortperm_col(compiled_for(column(t, name)))::Vector{Int})
 
 # --- numbers and summaries ------------------------------------------------------------------------
 
@@ -161,7 +161,7 @@ function othersummary(c::Column{E}, name::String, n::Int, nmiss::Int, T::String)
 end
 
 """
-A column's summary, compiled per column type. The cell type is named from
+A column's summary, compiled per column type (`describe` hands it the wrapper). The cell type is named from
 the cells: the first cell's type, as `Union{Missing, …}` when some cells are missing.
 """
 function summarize(c::Column, name::String)
@@ -182,11 +182,11 @@ function summarize(c::Column, name::String)
     return x isa Real ? numsummary(c, name, n, nmiss, T) : othersummary(c, name, n, nmiss, T)
 end
 
-"Every column's summary (one dispatch per column)."
+"Every column's summary (one dispatch per column), each compiled for its column's type."
 function describe(t::Table)
     out = ColSummary[]
     for k in eachindex(t.cols)
-        push!(out, summarize(t.cols[k], t.names[k])::ColSummary)
+        push!(out, summarize(compiled_for(t.cols[k]), t.names[k])::ColSummary)
     end
     return out
 end

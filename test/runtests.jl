@@ -46,8 +46,9 @@ end
     @test floats(sortby(m, "a"), "a"; skipmissing = true) == [1.0, 3.0]
 end
 
-# a column's code is compiled for the column's type: the table's loops pass each column as it is, and
-# Julia compiles the call for its type (traits §7.1); the user's own column type gets its own instances
+# a column's code is compiled for the column's type: the table's loops hand each column over as the wrapper
+# `compiled_for(c)`, whose code is compiled for the object's type (traits §7.4, §7.6); the user's own column type
+# gets its own instances, at `Compiled{Fill}`
 "Whether `f` holds code compiled for an argument of type `T` first."
 compiled_at(f, T) = any(mi -> mi !== nothing && isdefined(mi, :cache) && mi.specTypes <: Tuple{typeof(f), T, Vararg},
                         [mi for m in methods(f) for mi in Base.specializations(m)])
@@ -56,6 +57,9 @@ compiled_at(f, T) = any(mi -> mi !== nothing && isdefined(mi, :cache) && mi.spec
     addcolumn!(t, "f", Fill(2.0, 3))
     @test describe(t)[2].mean == 2.0 && floats(t, "f") == [2.0, 2.0, 2.0] && size(sortby(t, "f")) == (3, 2)
     TC = TraitTables.TableCore
-    @test compiled_at(TC.summarize, Fill) && compiled_at(TC.floats, Fill) && compiled_at(TC.take, Fill) &&
-          compiled_at(TC.sortperm_col, Fill)
+    W = Compiled{Fill}
+    @test compiled_at(TC.summarize, W) && compiled_at(TC.floats, W) && compiled_at(TC.take, W) &&
+          compiled_at(TC.sortperm_col, W)
+    # the results are the plain call's: a `Vector{Float64}` column stays one
+    @test sortby(t, "f")["x"] isa Vector{Float64} && TC.take(compiled_for([1.5, 2.5]), [2]) isa Vector{Float64}
 end
