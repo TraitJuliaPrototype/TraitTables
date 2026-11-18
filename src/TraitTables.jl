@@ -82,7 +82,7 @@ end
 
 # a precompile workload, run while the package image is built: the cell types a reader produces,
 # and the table's operations
-if ccall(:jl_generating_output, Cint, ()) == 1
+if Base.generating_output(true)
     let
     t = table("x" => [0.5, 1.5, 2.5], "n" => [3, 1, 2], "s" => ["b", "a", "c"])
     summary_text(t)
