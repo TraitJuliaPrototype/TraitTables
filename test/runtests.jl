@@ -46,7 +46,16 @@ end
     @test floats(sortby(m, "a"), "a"; skipmissing = true) == [1.0, 3.0]
 end
 
-# a cast or a carried attribute at a parameter no trait types has no effect (open issue 162)
-@testset "TraitTables: no casts without effect" begin
-    @test isempty(detect_unused_casts(TraitTables))
+# a column's code is compiled for the column's type: the table's loops pass each column as it is, and
+# Julia compiles the call for its type (traits §7.1); the user's own column type gets its own instances
+"Whether `f` holds code compiled for an argument of type `T` first."
+compiled_at(f, T) = any(mi -> mi !== nothing && isdefined(mi, :cache) && mi.specTypes <: Tuple{typeof(f), T, Vararg},
+                        [mi for m in methods(f) for mi in Base.specializations(m)])
+@testset "TraitTables: a column's code per column type" begin
+    t = TraitTables.table("x" => [1.0, 2.0, 3.0])
+    addcolumn!(t, "f", Fill(2.0, 3))
+    @test describe(t)[2].mean == 2.0 && floats(t, "f") == [2.0, 2.0, 2.0] && size(sortby(t, "f")) == (3, 2)
+    TC = TraitTables.TableCore
+    @test compiled_at(TC.summarize, Fill) && compiled_at(TC.floats, Fill) && compiled_at(TC.take, Fill) &&
+          compiled_at(TC.sortperm_col, Fill)
 end

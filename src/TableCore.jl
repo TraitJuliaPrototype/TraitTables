@@ -2,13 +2,14 @@
 #   - `Column{T}`: what table code reads from a column; `T` is its cell type. Every `Vector` is a
 #     member by a family; a reader's own column type joins by a subtrait (TraitCSV's `CSVColumn`).
 #   - `Table`: names and columns, `Vector{Column}`. A new schema compiles nothing in the table's own
-#     loops; each column's code (summaries, row selection, sorting) is compiled per column type,
-#     where the table's loops cast the column with `compiled_for` (traits §7.6).
+#     loops; each column's code (summaries, row selection, sorting) is compiled per column type: a loop
+#     passes each column as it is, and the call is compiled for the column's type, as Julia compiles any
+#     call (traits §7.1). `Column` erases nothing by default.
 # This is the storage proposed for DataFrames itself, `Vector{Column}` in place of
 # `Vector{AbstractVector}`.
 module TableCore
 using TraitWorld
-@trait_module
+@trait_module first_seen = false     # a trait argument compiled as Julia compiles it (traits §7.1; the library's default differs: T-127)
 export Column, nrows, cell, Table, emptytable, ncol, nrow, colnames, colindex, column, addcolumn!,
        select, rows, head, sortby, floats, ColSummary, summarize, describe, cellstring
 
@@ -72,7 +73,7 @@ end
 function rows(t::Table, idx::Vector{Int})
     cols = Column[]
     for c in t.cols
-        push!(cols, take(compiled_for(c), idx))
+        push!(cols, take(c, idx))
     end
     return Table(copy(t.names), cols)
 end
@@ -87,7 +88,7 @@ function sortperm_col(c::Column)
     return sortperm(v)
 end
 "The table sorted by column `name`."
-sortby(t::Table, name::String) = rows(t, sortperm_col(compiled_for(column(t, name)))::Vector{Int})
+sortby(t::Table, name::String) = rows(t, sortperm_col(column(t, name))::Vector{Int})
 
 # --- numbers and summaries ------------------------------------------------------------------------
 
@@ -160,7 +161,7 @@ function othersummary(c::Column{E}, name::String, n::Int, nmiss::Int, T::String)
 end
 
 """
-A column's summary, compiled per column type where the caller casts it. The cell type is named from
+A column's summary, compiled per column type. The cell type is named from
 the cells: the first cell's type, as `Union{Missing, …}` when some cells are missing.
 """
 function summarize(c::Column, name::String)
@@ -185,7 +186,7 @@ end
 function describe(t::Table)
     out = ColSummary[]
     for k in eachindex(t.cols)
-        push!(out, summarize(compiled_for(t.cols[k]), t.names[k])::ColSummary)
+        push!(out, summarize(t.cols[k], t.names[k])::ColSummary)
     end
     return out
 end
